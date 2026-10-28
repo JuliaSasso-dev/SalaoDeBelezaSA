@@ -176,7 +176,6 @@
   margin-top: 8px;
 }
 
-/* --- Estilos para o Modal de Login e Cadastro --- */
 .auth-tabs {
   display: flex;
   border-bottom: 2px solid var(--border-color);
@@ -245,4 +244,22 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+}
+
+.auth-notice-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.user-profile-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.user-greeting strong {
+  color: var(--primary);
 }
