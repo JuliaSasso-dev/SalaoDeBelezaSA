@@ -10,7 +10,8 @@ export default function InputField({
   placeholder = '',
   required = false,
   error = '',
-  className = ''
+  className = '',
+  ...props 
 }) {
   return (
     <div className={`input-container ${className}`}>
@@ -28,6 +29,7 @@ export default function InputField({
         placeholder={placeholder}
         required={required}
         className={`input-element ${error ? 'input-error' : ''}`}
+        {...props} 
       />
       {error && <span className="error-message">{error}</span>}
     </div>

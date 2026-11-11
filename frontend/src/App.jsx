@@ -14,7 +14,7 @@ export default function App() {
   const [registeredUsers, setRegisteredUsers] = useState([
     {
       nome: 'Maria Silva',
-      email: 'maria@email.com',
+      email: 'maria@gmail.com',
       senha: '123',
       tipoPerfil: 'cliente'
     }
@@ -36,6 +36,8 @@ export default function App() {
     senha: '',
     tipoPerfil: 'cliente'
   });
+
+  const todayDateStr = new Date().toISOString().split('T')[0];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -71,6 +73,12 @@ export default function App() {
       alert(`Login efetuado com sucesso! Bem-vindo(a), ${existingUser.nome}.`);
 
     } else {
+      const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+      if (!gmailRegex.test(authData.email.trim())) {
+        alert('Erro: Por favor, informe um e-mail válido terminado em @gmail.com (exemplo: usuario@gmail.com).');
+        return;
+      }
+
       const emailExists = registeredUsers.some(
         (u) => u.email.toLowerCase() === authData.email.toLowerCase()
       );
@@ -108,6 +116,15 @@ export default function App() {
       setIsBookingModalOpen(false);
       setAuthMode('login');
       setIsAuthModalOpen(true);
+      return;
+    }
+
+    const selectedDate = new Date(`${formData.data}T00:00:00`);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+
+    if (isNaN(selectedDate.getTime()) || selectedDate.getFullYear() < todayDate.getFullYear() || selectedDate < todayDate) {
+      alert('Erro: Por favor, selecione uma data válida a partir de hoje.');
       return;
     }
 
@@ -259,6 +276,7 @@ export default function App() {
               label="Data" 
               name="data"
               type="date"
+              min={todayDateStr}
               value={formData.data}
               onChange={handleChange}
               required
@@ -326,7 +344,7 @@ export default function App() {
             type="email"
             value={authData.email}
             onChange={handleAuthChange}
-            placeholder="seu@email.com"
+            placeholder="seu@gmail.com"
             required
           />
 
