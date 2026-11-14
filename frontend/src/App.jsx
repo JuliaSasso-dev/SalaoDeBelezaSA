@@ -9,6 +9,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAppointmentsModalOpen, setIsAppointmentsModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
 
   const [registeredUsers, setRegisteredUsers] = useState([
@@ -21,6 +22,18 @@ export default function App() {
   ]);
 
   const [user, setUser] = useState(null);
+
+  const [appointments, setAppointments] = useState([
+    {
+      id: 1,
+      email: 'maria@email.com',
+      servico: 'Corte & Escova',
+      data: '2026-11-25',
+      hora: '14:00'
+    }
+  ]);
+
+  const [editingAppointment, setEditingAppointment] = useState(null);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -37,7 +50,7 @@ export default function App() {
     tipoPerfil: 'cliente'
   });
 
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayFormatted = new Date().toISOString().split('T')[0];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -52,6 +65,14 @@ export default function App() {
       setAuthMode('login');
       setIsAuthModalOpen(true);
     } else {
+      setEditingAppointment(null);
+      setFormData({
+        nome: user.nome,
+        telefone: '',
+        servico: 'Corte & Escova',
+        data: '',
+        hora: ''
+      });
       setIsBookingModalOpen(true);
     }
   };
@@ -100,10 +121,6 @@ export default function App() {
       alert(`Conta criada com sucesso para ${newUser.nome}!`);
     }
 
-    if (!formData.nome && authData.nome) {
-      setFormData((prev) => ({ ...prev, nome: authData.nome }));
-    }
-
     setIsAuthModalOpen(false);
     setIsBookingModalOpen(true);
     setAuthData({ nome: '', email: '', senha: '', tipoPerfil: 'cliente' });
@@ -119,24 +136,77 @@ export default function App() {
       return;
     }
 
-    const selectedDate = new Date(`${formData.data}T00:00:00`);
-    const todayDate = new Date();
-    todayDate.setHours(0, 0, 0, 0);
-
-    if (isNaN(selectedDate.getTime()) || selectedDate.getFullYear() < todayDate.getFullYear() || selectedDate < todayDate) {
-      alert('Erro: Por favor, selecione uma data válida a partir de hoje.');
+    // Validação robusta de data no passado ou ano inválido (ex: < 2024 ou ano com menos de 4 dígitos)
+    const [year, month, day] = formData.data.split('-');
+    if (!year || year.length !== 4 || parseInt(year, 10) < 2024) {
+      alert('Erro: Por favor, insira uma data válida (com ano completo a partir de 2024).');
       return;
     }
 
-    alert(`Agendamento realizado para ${formData.nome || user.nome} no dia ${formData.data} às ${formData.hora}!`);
+    const selectedDate = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      alert('Erro: Não é permitido realizar agendamentos para datas que já passaram.');
+      return;
+    }
+
+    if (editingAppointment) {
+      setAppointments(appointments.map(app => 
+        app.id === editingAppointment.id 
+          ? { ...app, servico: formData.servico, data: formData.data, hora: formData.hora }
+          : app
+      ));
+      alert('Agendamento alterado com sucesso!');
+    } else {
+      const newApp = {
+        id: Date.now(),
+        email: user.email,
+        servico: formData.servico,
+        data: formData.data,
+        hora: formData.hora
+      };
+      setAppointments([...appointments, newApp]);
+      alert(`Agendamento realizado para ${formData.nome || user.nome} no dia ${formData.data.split('-').reverse().join('/')} às ${formData.hora}!`);
+    }
+
     setIsBookingModalOpen(false);
+    setEditingAppointment(null);
     setFormData({ nome: '', telefone: '', servico: 'Corte & Escova', data: '', hora: '' });
+  };
+
+  const handleEditClick = (app) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const appointmentDate = new Date(app.data + 'T00:00:00');
+    const diffTime = appointmentDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 3) {
+      alert('Não é possível alterar este agendamento pois falta menos de 3 dias para a data marcada.');
+      return;
+    }
+
+    setEditingAppointment(app);
+    setFormData({
+      nome: user.nome,
+      telefone: '',
+      servico: app.servico,
+      data: app.data,
+      hora: app.hora
+    });
+    setIsAppointmentsModalOpen(false);
+    setIsBookingModalOpen(true);
   };
 
   const handleLogout = () => {
     setUser(null);
     alert('Você saiu da sua conta.');
   };
+
+  const userAppointments = user ? appointments.filter(a => a.email === user.email) : [];
 
   return (
     <div className="app-container">
@@ -153,7 +223,14 @@ export default function App() {
           <div className="header-actions">
             {user ? (
               <div className="user-profile-menu">
-                <span className="user-greeting">Olá, <strong>{user.nome}</strong></span>
+                <span 
+                  className="user-greeting" 
+                  onClick={() => setIsAppointmentsModalOpen(true)}
+                  style={{ cursor: 'pointer' }}
+                  title="Clique para ver seus agendamentos"
+                >
+                  Olá, <strong>{user.nome}</strong>
+                </span>
                 <Button variant="ghost" onClick={handleLogout}>Sair</Button>
               </div>
             ) : (
@@ -226,10 +303,11 @@ export default function App() {
         <p>© {new Date().getFullYear()} Salão Lumière</p>
       </footer>
 
+      {/* Modal de Agendamento / Edição */}
       <Modal 
         isOpen={isBookingModalOpen} 
         onClose={() => setIsBookingModalOpen(false)}
-        title="Agende seu Horário"
+        title={editingAppointment ? "Editar Agendamento" : "Agende seu Horário"}
       >
         <form onSubmit={handleBookingSubmit} className="modal-form">
           <InputField 
@@ -272,15 +350,22 @@ export default function App() {
           </div>
 
           <div className="form-row">
-            <InputField 
-              label="Data" 
-              name="data"
-              type="date"
-              min={todayDateStr}
-              value={formData.data}
-              onChange={handleChange}
-              required
-            />
+            <div className="input-container">
+              <label htmlFor="data" className="input-label">
+                Data <span className="required-star">*</span>
+              </label>
+              <input
+                id="data"
+                name="data"
+                type="date"
+                min={todayFormatted}
+                value={formData.data}
+                onChange={handleChange}
+                required
+                className="input-element"
+              />
+            </div>
+
             <InputField 
               label="Horário" 
               name="hora"
@@ -293,12 +378,55 @@ export default function App() {
 
           <div className="form-submit">
             <Button type="submit" fullWidth>
-              Confirmar Agendamento
+              {editingAppointment ? "Salvar Alterações" : "Confirmar Agendamento"}
             </Button>
           </div>
         </form>
       </Modal>
 
+      {/* Modal de Meus Agendamentos */}
+      <Modal 
+        isOpen={isAppointmentsModalOpen} 
+        onClose={() => setIsAppointmentsModalOpen(false)}
+        title="Meus Agendamentos"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {userAppointments.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Você não possui horários agendados.</p>
+          ) : (
+            userAppointments.map((app) => (
+              <div 
+                key={app.id} 
+                style={{
+                  padding: '12px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-main)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
+              >
+                <div>
+                  <strong>{app.servico}</strong>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Data: {app.data.split('-').reverse().join('/')} às {app.hora}
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => handleEditClick(app)}>
+                  Editar
+                </Button>
+              </div>
+            ))
+          )}
+
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '8px' }}>
+            * AVISO: Só é permitido alterar ou editar a data/hora do agendamento até 3 dias antes da data marcada.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Modal de Autenticação */}
       <Modal 
         isOpen={isAuthModalOpen} 
         onClose={() => setIsAuthModalOpen(false)}
